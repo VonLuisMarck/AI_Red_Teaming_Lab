@@ -1,0 +1,18 @@
+# services/llm-gateway/requirements.txt
+
+# FastAPI y servidor
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+
+# MCP Client
+fastmcp==0.2.0
+
+# LLM (Ollama)
+ollama==0.1.6
+
+# HTTP Requests
+requests==2.31.0
+
+# Utilidades
+python-dotenv==1.0.0
