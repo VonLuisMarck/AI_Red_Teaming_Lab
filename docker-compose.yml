@@ -1,0 +1,102 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # ============================================
+  # Servidor MCP Vulnerable
+  # ============================================
+  mcp-server:
+    build: ./services/mcp-server
+    container_name: mcp-server
+    hostname: mcp-server
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/var/log
+    networks:
+      - mcp-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ============================================
+  # Ollama LLM Local
+  # ============================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    hostname: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - mcp-net
+    # Descomentar si tienes GPU NVIDIA
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # ============================================
+  # LLM Gateway (API para tu framework)
+  # ============================================
+  llm-gateway:
+    build: ./services/llm-gateway
+    container_name: llm-gateway
+    hostname: gateway
+    ports:
+      - "8502:8502"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - MCP_SERVER_URL=http://mcp-server:8000/mcp/
+      - LOG_LEVEL=INFO
+    depends_on:
+      ollama:
+        condition: service_healthy
+      mcp-server:
+        condition: service_healthy
+    volumes:
+      - ./logs:/var/log
+    networks:
+      - mcp-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8502/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+# ============================================
+# Redes
+# ============================================
+networks:
+  mcp-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================
+# Volúmenes
+# ============================================
+volumes:
+  ollama-data:
+    driver: local
